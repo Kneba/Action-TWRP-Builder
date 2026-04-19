@@ -41,6 +41,18 @@ on:
         description: 'BUILD_TARGET'
         required: true
         default: 'recovery'
+      OUTPUT_FILENAME:
+        description: 'Type the desired final file name (example: TWRP-X00TD.img)'
+        required: true
+        default: 'twrp-recovery-X00TD-19042026.img'
+      RELEASE_TAG:
+        description: 'Type GitHub Release Tag name (example: v3.7.1-2)'
+        required: true
+        default: 'v2.0'
+      RELEASE_NOTES:
+        description: 'Type release notes or recent changes'
+        required: true
+        default: 'Key Features: FBEv2 and FUSE Decryption Support.'
 
 jobs:
   build:
@@ -109,8 +121,8 @@ jobs:
         mkdir workspace
         cd workspace
         echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
-        git config --global user.name "Nico170420"
-        git config --global user.email "b170420nc@gmail.com"
+        git config --global user.name "Kneba"
+        git config --global user.email "Kneba@users.noreply.github.com"
         repo init --depth=1 -u ${{ github.event.inputs.MANIFEST_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
       id: pwd
 
@@ -152,6 +164,11 @@ jobs:
       with:
         swap-size-gb: 12
 
+    - name: Patch TWRP (DS2AM)
+      run: |
+        cd workspace/bootable/recovery
+        sed -i 's/mConst.SetValue("tw_mount_system_ro", 2);/mConst.SetValue("tw_mount_system_ro", 0);/g' data.cpp
+
     - name: Building recovery
       run: |
         source build/envsetup.sh
@@ -159,18 +176,27 @@ jobs:
         lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
+    - name: Rename Output File
+      run: |
+        cd workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}
+        cp ${{ github.event.inputs.BUILD_TARGET }}.img ${{ github.event.inputs.OUTPUT_FILENAME }}
+        echo "File successfully renamed to ${{ github.event.inputs.OUTPUT_FILENAME }}"
+
     - name: Upload to Release
       uses: softprops/action-gh-release@v2
       with:
         files: | 
-          workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ github.event.inputs.BUILD_TARGET }}.img
+          workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ github.event.inputs.OUTPUT_FILENAME }}
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.zip
           workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*vendor*.img
-        name: ${{ github.event.inputs.DEVICE_NAME }}-${{ github.run_id }}
-        tag_name: ${{ github.run_id }}
+        name: TWRP ${{ github.event.inputs.DEVICE_NAME }} - ${{ github.event.inputs.RELEASE_TAG }}
+        tag_name: ${{ github.event.inputs.RELEASE_TAG }}
         body: |
-          Manifest: ${{ github.event.inputs.MANIFEST_BRANCH }}
-          Device: ${{ github.event.inputs.DEVICE_NAME }}
-          Target: ${{ github.event.inputs.BUILD_TARGET }}.img
+          **Build Information:**
+          * Manifest: ${{ github.event.inputs.MANIFEST_BRANCH }}
+          * Device: ${{ github.event.inputs.DEVICE_NAME }}
+          
+          **Release Notes (Changelog):**
+          ${{ github.event.inputs.RELEASE_NOTES }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
