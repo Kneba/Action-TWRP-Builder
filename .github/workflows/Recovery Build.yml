@@ -167,7 +167,7 @@ jobs:
     - name: Patch TWRP (DS2AM)
       run: |
         cd workspace/bootable/recovery
-        sed -i 's/mConst.SetValue("tw_mount_system_ro", 2);/mConst.SetValue("tw_mount_system_ro", 0);/g' data.cpp
+        sed -i 's/mPersist.SetValue("tw_mount_system_ro", "2");/mPersist.SetValue("tw_mount_system_ro", "0");/g' data.cpp
 
     - name: Building recovery
       run: |
